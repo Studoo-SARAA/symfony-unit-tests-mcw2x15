@@ -1,0 +1,59 @@
+# @author : Julien Pechberty
+#
+# https://help.github.com/en/actions
+name: SARAA TESTING - Symfony wihtout database
+on:
+  push:
+    branches:
+      - main
+jobs:
+  symfony:
+    #name: Build & Test App( Symfony 6.2.7 & PHP ${{matrix.php-versions}} )
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-versions: ['8.2']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      # Install et configuration PHP sur le runner (https://github.com/shivammathur/setup-php)
+      - name: Installation PHP, extensions, composer et symfony-cli
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-versions }}
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_sqlite, dom, filter, gd, iconv, json, mbstring, pdo, curl, amqp
+          tools: composer, symfony-cli, phpunit:9.6.5
+          coverage: xdebug
+        env:
+          update: true
+      - name: Check PHP Version
+        run: php -v
+      # Copie du fichier .env
+      - name: Copie du fichier .env
+        run: mv .env.example .env
+      # Installation des dépendances composer
+      - name: Installation des dépendances composer
+        run: composer install --prefer-dist --no-progress --no-suggest
+      #Verification version de Symfony
+      - name: Verification version de Symfony
+        run: symfony console -V
+      # Installation des assetsSymfony
+      - name: Installation des assets Symfony
+        run: symfony console assets:install --no-debug
+      # Démarrage du server local de Symfony
+      - name: Démarrage du server local de Symfony
+        run: symfony serve -d --no-tls
+      # Création du dossier réceptacle des résultats des tests coverage PHPUnit
+      - name: Création du dossier réceptacle des résultats de Coverage PHPUnit
+        run: mkdir -p var/reports/ci-coverage-report
+      # Execution des tests PHPunit
+      - name: Execution des tests PHPunit
+        run: phpunit --testdox --testdox-xml var/reports/test-report.xml --coverage-html var/reports/ci-coverage-report
+        continue-on-error: true
+      # Création de l'artefact des résultats des tests (https://github.com/actions/upload-artifact)
+      - name: Création de l'artefact des résultats des tests
+        uses: actions/upload-artifact@v3
+        with:
+          name: report-${{ github.run_id }}
+          path: var/reports
